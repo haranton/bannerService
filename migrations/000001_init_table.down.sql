@@ -1,0 +1,2 @@
+DROP TABLE IF EXISTS banners CASCADE;
+DROP TABLE IF EXISTS feature_tag_banner;
