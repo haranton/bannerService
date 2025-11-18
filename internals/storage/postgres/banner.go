@@ -3,7 +3,9 @@ package postgres
 import (
 	"bannerService/internals/dto"
 	"bannerService/internals/models"
+	"bannerService/internals/storage"
 	"context"
+	"database/sql"
 	"fmt"
 	"strings"
 )
@@ -29,6 +31,9 @@ func (st *PostgresStorage) Banner(ctx context.Context, tagId, feature_id int) (*
 		&banner.UpdatedAt,
 	)
 	if err != nil {
+		if err == sql.ErrNoRows {
+			return nil, storage.ErrBannerNotFound
+		}
 		return nil, err
 	}
 
@@ -105,7 +110,7 @@ func (st *PostgresStorage) Banners(ctx context.Context, params dto.BannersQuery)
 func (st *PostgresStorage) CreateBanner(
 	ctx context.Context,
 	banner *models.Banner,
-	featureTagBanner *models.FeatureTagBanner) (*models.Banner, error) {
+	featureTagBanner []*models.FeatureTagBanner) (*models.Banner, error) {
 
 	tx, err := st.db.BeginTxx(ctx, nil)
 	if err != nil {
@@ -121,6 +126,7 @@ func (st *PostgresStorage) CreateBanner(
 	if err != nil {
 		return nil, err
 	}
+	defer rows.Close()
 
 	if rows.Next() {
 		if err := rows.Scan(&banner.ID); err != nil {
@@ -132,7 +138,7 @@ func (st *PostgresStorage) CreateBanner(
         VALUES (:tag_id, :feature_id, :banner_id)
         RETURNING id`
 
-	_, err = tx.NamedQuery(queryCreateBannerLinks, banner)
+	_, err = tx.NamedExec(queryCreateBannerLinks, featureTagBanner)
 	if err != nil {
 		return nil, err
 	}
@@ -157,8 +163,18 @@ func (st *PostgresStorage) UpdateBanner(ctx context.Context,
 
 	queryDeleteOldLinks := `DELETE FROM feature_tag_banner WHERE banner_id = $1`
 
-	if _, err := tx.Exec(queryDeleteOldLinks, banner.ID); err != nil {
+	resDeleted, err := tx.Exec(queryDeleteOldLinks, banner.ID)
+	if err != nil {
 		return err
+	}
+
+	affected, err := resDeleted.RowsAffected()
+	if err != nil {
+		return err
+	}
+
+	if affected == 0 {
+		return storage.ErrBannerNotFound
 	}
 
 	query := `

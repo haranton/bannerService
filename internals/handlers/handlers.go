@@ -27,12 +27,10 @@ func NewHandler(service *service.Service, logger *slog.Logger, cfg *config.Confi
 
 func (h *Handler) RegisterRoutes(mux *http.ServeMux) {
 
-	mux.HandleFunc("GET /api/questions/", h.GetQuestions)
-	mux.HandleFunc("POST /api/questions/", h.CreateQuestion)
-	mux.HandleFunc("GET /api/questions/{id}", h.GetQuestionWithAnswers)
-	mux.HandleFunc("DELETE /api/questions/{id}", h.DeleteQuestion)
+	mux.HandleFunc("GET /api/user_banner/", h.Banner)
+	mux.HandleFunc("GET /api/banner/", h.Banners)
+	mux.HandleFunc("POST /api/banner/", h.CreateBanner)
+	mux.HandleFunc("PATCH /api/banner/{id}", h.PatchBanner)
+	mux.HandleFunc("DELETE /api/banner/{id}", h.DeleteBanner)
 
-	mux.HandleFunc("POST /api/questions/{id}/answers/", h.CreateAnswer)
-	mux.HandleFunc("GET /api/answers/{id}", h.GetAnswer)
-	mux.HandleFunc("DELETE /api/answers/{id}", h.DeleteAnswer)
 }

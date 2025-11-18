@@ -4,6 +4,7 @@ import (
 	"bannerService/internals/dto"
 	"bannerService/internals/models"
 	"bannerService/internals/service"
+	"bannerService/internals/storage"
 	"encoding/json"
 	"errors"
 	"net/http"
@@ -11,19 +12,59 @@ import (
 )
 
 var (
-	TextErrIsRequired = "text is required"
+	TextErrIsRequired          = "text is required"
+	TextErrTagIsRequired       = "tag id is required"
+	TextErrFeatureIdIsRequired = "feature id is required"
+	TextErrFeatureIdValidate   = "feature id must be int"
+	TextErrTagIdValidate       = "tag id must be int"
 )
 
-func (h *Handler) GetQuestions(w http.ResponseWriter, r *http.Request) {
-	questions, err := h.service.SrvQuestion.Questions(r.Context())
+func (h *Handler) Banner(w http.ResponseWriter, r *http.Request) {
+
+	tagIdHeader := r.Header.Get("tag_id")
+	if tagIdHeader == "" {
+		writeJSONError(w, http.StatusBadRequest, TextErrTagIsRequired)
+	}
+
+	tagId, err := strconv.Atoi(tagIdHeader)
 	if err != nil {
+		writeJSONError(w, http.StatusBadRequest, TextErrTagIdValidate)
+	}
+
+	featureIdHeader := r.Header.Get("feature_id")
+	if featureIdHeader == "" {
+		writeJSONError(w, http.StatusBadRequest, TextErrFeatureIdIsRequired)
+	}
+
+	featureId, err := strconv.Atoi(featureIdHeader)
+	if err != nil {
+		writeJSONError(w, http.StatusBadRequest, TextErrFeatureIdValidate)
+	}
+
+	var UseLastRevision bool
+	UseLastRevisionHeader := r.Header.Get("use_last_revision")
+	if UseLastRevisionHeader == "true" {
+		UseLastRevision = true
+	}
+
+	params := dto.BannerQuery{
+		UseLastRevision: UseLastRevision,
+		Feature_id:      featureId,
+		Tag_id:          tagId,
+	}
+
+	banner, err := h.service.SrvBanner.Banner(r.Context(), params)
+	if err != nil {
+		if errors.Is(err, storage.ErrBannerNotFound) {
+			http.Error(w, err.Error(), http.StatusNotFound)
+		}
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
 	}
 
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(http.StatusOK)
-	if err := json.NewEncoder(w).Encode(questions); err != nil {
+	if err := json.NewEncoder(w).Encode(banner); err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 	}
 }
