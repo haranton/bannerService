@@ -7,6 +7,7 @@ import (
 	"bannerService/internals/storage"
 	"encoding/json"
 	"errors"
+	"fmt"
 	"net/http"
 	"strconv"
 )
@@ -69,10 +70,71 @@ func (h *Handler) Banner(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
-func (h *Handler) CreateQuestion(w http.ResponseWriter, r *http.Request) {
-	var questionRequest dto.QuestionCreateRequest
-	if err := json.NewDecoder(r.Body).Decode(&questionRequest); err != nil {
-		http.Error(w, "invalid request body", http.StatusBadRequest)
+func (h *Handler) Banners(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+
+	tagIdHeader := r.Header.Get("tag_id")
+	var tagId int
+	if tagIdHeader != "" {
+		tagId, err = strconv.Atoi(tagIdHeader)
+		if err != nil {
+			tagId = 0
+		}
+	}
+
+	featureIdHeader := r.Header.Get("feature_id")
+	var featureId int
+	if featureIdHeader != "" {
+		featureId, err = strconv.Atoi(featureIdHeader)
+		if err != nil {
+			featureId = 0
+		}
+	}
+
+	limitHeader := r.Header.Get("limit")
+	var limit int
+	if limitHeader == "" {
+		limit, err = strconv.Atoi(limitHeader)
+		if err != nil {
+			limit = 0
+		}
+	}
+
+	limitOffsetHeader := r.Header.Get("offset")
+	var offset int
+	if limitOffsetHeader == "" {
+		offset, err = strconv.Atoi(limitOffsetHeader)
+		if err != nil {
+			offset = 0
+		}
+	}
+
+	params := dto.BannersQuery{
+		Feature_id: featureId,
+		Tag_id:     tagId,
+		Offset:     offset,
+		Limit:      limit,
+	}
+
+	banners, err := h.service.SrvBanner.Banners(r.Context(), params)
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(http.StatusOK)
+	if err := json.NewEncoder(w).Encode(banners); err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+	}
+}
+
+func (h *Handler) CreateBanner(w http.ResponseWriter, r *http.Request) {
+	var bannerRequest dto.BannerCreateRequest
+	if err := json.NewDecoder(r.Body).Decode(&bannerRequest); err != nil {
+		errMessage := fmt.Sprintf("failed decode body request, err: %s", err.Error())
+		writeJSONError(w, http.StatusBadRequest, errMessage)
 		return
 	}
 
