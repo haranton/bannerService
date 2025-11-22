@@ -1,0 +1,39 @@
+{
+  "version": "0.2.0",
+  "configurations": [
+    {
+      "name": "Debug gRPC Notify Server",
+      "type": "go",
+      "cwd": "${workspaceFolder}",
+      "request": "launch",
+      "mode": "debug",
+      "program": "${workspaceFolder}/cmd/server/main.go",
+      "args": [
+        "--config=${workspaceFolder}/config/local.yaml",
+        "--app-type=localhost"
+      ],
+      "stopOnEntry": false,
+       "buildFlags": "-gcflags=all=-N"
+    },
+
+        {
+      "name": "Debug Go: Test Package",
+      "type": "go",
+      "request": "launch",
+      "mode": "test",
+      "program": "${workspaceFolder}/internals/storage/postgres",
+      "buildFlags": "-gcflags=all=-N",
+      "args": []
+    },
+    {
+      "name": "Debug Go: Test File",
+      "type": "go",
+      "request": "launch",
+      "mode": "test",
+      "program": "${fileDirname}",
+      "buildFlags": "-gcflags=all=-N",
+      "args": []
+    }
+
+  ]
+}

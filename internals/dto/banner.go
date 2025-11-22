@@ -15,9 +15,14 @@ type BannersQuery struct {
 	Offset     int
 }
 
-type BannerCreateRequest struct {
+type BannerCreateUpdateRequest struct {
 	TagIds    []int           `json:"tag_ids"`
 	FeatureId int             `json:"feature_id"`
 	Content   json.RawMessage `json:"content"`
 	IsActive  bool            `json:"is_active"`
+}
+
+type FeatureTags struct {
+	TagIds    []int
+	FeatureId int
 }

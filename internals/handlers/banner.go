@@ -2,8 +2,8 @@ package handlers
 
 import (
 	"bannerService/internals/dto"
+	"bannerService/internals/mapper"
 	"bannerService/internals/models"
-	"bannerService/internals/service"
 	"bannerService/internals/storage"
 	"encoding/json"
 	"errors"
@@ -131,21 +131,42 @@ func (h *Handler) Banners(w http.ResponseWriter, r *http.Request) {
 }
 
 func (h *Handler) CreateBanner(w http.ResponseWriter, r *http.Request) {
-	var bannerRequest dto.BannerCreateRequest
+
+	var bannerRequest dto.BannerCreateUpdateRequest
 	if err := json.NewDecoder(r.Body).Decode(&bannerRequest); err != nil {
 		errMessage := fmt.Sprintf("failed decode body request, err: %s", err.Error())
 		writeJSONError(w, http.StatusBadRequest, errMessage)
 		return
 	}
 
-	if questionRequest.Text == "" {
+	if string(bannerRequest.Content) == "" {
 		http.Error(w, TextErrIsRequired, http.StatusBadRequest)
 		return
 	}
 
-	question := models.Question{Text: questionRequest.Text}
+	if len(bannerRequest.TagIds) == 0 {
+		errMessage := fmt.Sprintf("tags is reqired")
+		writeJSONError(w, http.StatusBadRequest, errMessage)
+		return
+	}
 
-	questionCreated, err := h.service.SrvQuestion.CreateQuestion(r.Context(), &question)
+	if bannerRequest.FeatureId == 0 {
+		errMessage := fmt.Sprintf("FeatureId is reqired")
+		writeJSONError(w, http.StatusBadRequest, errMessage)
+		return
+	}
+
+	banner := models.Banner{
+		Content:  bannerRequest.Content,
+		IsActive: bannerRequest.IsActive,
+	}
+
+	featureTags := dto.FeatureTags{
+		TagIds:    bannerRequest.TagIds,
+		FeatureId: bannerRequest.FeatureId,
+	}
+
+	bannerCreated, err := h.service.SrvBanner.CreateBanner(r.Context(), &banner, &featureTags)
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
@@ -153,12 +174,13 @@ func (h *Handler) CreateBanner(w http.ResponseWriter, r *http.Request) {
 
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(http.StatusCreated)
-	if err := json.NewEncoder(w).Encode(questionCreated); err != nil {
+	if err := json.NewEncoder(w).Encode(bannerCreated); err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 	}
 }
 
-func (h *Handler) GetQuestionWithAnswers(w http.ResponseWriter, r *http.Request) {
+func (h *Handler) PatchBanner(w http.ResponseWriter, r *http.Request) {
+
 	idStr := r.PathValue("id")
 	id, err := strconv.Atoi(idStr)
 	if err != nil {
@@ -166,33 +188,71 @@ func (h *Handler) GetQuestionWithAnswers(w http.ResponseWriter, r *http.Request)
 		return
 	}
 
-	questionWithAnswers, err := h.service.SrvQuestion.QuestionWithAnswers(r.Context(), id)
+	var bannerRequest dto.BannerCreateUpdateRequest
+	if err := json.NewDecoder(r.Body).Decode(&bannerRequest); err != nil {
+		errMessage := fmt.Sprintf("failed decode body request, err: %s", err.Error())
+		writeJSONError(w, http.StatusBadRequest, errMessage)
+		return
+	}
+
+	if string(bannerRequest.Content) == "" {
+		http.Error(w, TextErrIsRequired, http.StatusBadRequest)
+		return
+	}
+
+	if len(bannerRequest.TagIds) == 0 {
+		errMessage := fmt.Sprintf("tags is reqired")
+		writeJSONError(w, http.StatusBadRequest, errMessage)
+		return
+	}
+
+	if bannerRequest.FeatureId == 0 {
+		errMessage := fmt.Sprintf("FeatureId is reqired")
+		writeJSONError(w, http.StatusBadRequest, errMessage)
+		return
+	}
+
+	banner := models.Banner{
+		Content:  bannerRequest.Content,
+		IsActive: bannerRequest.IsActive,
+	}
+
+	featureTags := dto.FeatureTags{
+		TagIds:    bannerRequest.TagIds,
+		FeatureId: bannerRequest.FeatureId,
+	}
+
+	featureTagsModel := mapper.FeatureTagsBanner(&featureTags, id)
+
+	err = h.service.SrvBanner.UpdateBanner(r.Context(), &banner, featureTagsModel)
 	if err != nil {
-		if errors.Is(err, service.ErrQuestionNotFound) {
-			http.Error(w, err.Error(), http.StatusNotFound)
+		if errors.Is(err, storage.ErrBannerNotFound) {
+			writeJSONError(w, http.StatusNotFound, "")
 			return
 		}
-		http.Error(w, err.Error(), http.StatusInternalServerError)
+		writeJSONError(w, http.StatusInternalServerError, err.Error())
 		return
 	}
 
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(http.StatusOK)
-	if err := json.NewEncoder(w).Encode(questionWithAnswers); err != nil {
-		http.Error(w, err.Error(), http.StatusInternalServerError)
-	}
 }
 
-func (h *Handler) DeleteQuestion(w http.ResponseWriter, r *http.Request) {
+func (h *Handler) DeleteBanner(w http.ResponseWriter, r *http.Request) {
 	idStr := r.PathValue("id")
 	id, err := strconv.Atoi(idStr)
 	if err != nil {
-		http.Error(w, "invalid question id", http.StatusBadRequest)
+		errMsg := fmt.Sprintf("invalid question id err: %s", err.Error())
+		writeJSONError(w, http.StatusBadRequest, errMsg)
 		return
 	}
 
-	if err := h.service.SrvQuestion.DeleteQuestion(r.Context(), id); err != nil {
-		http.Error(w, err.Error(), http.StatusInternalServerError)
+	if err := h.service.SrvBanner.DeleteBanner(r.Context(), id); err != nil {
+		if errors.Is(err, storage.ErrBannerNotFound) {
+			writeJSONError(w, http.StatusNotFound, "")
+			return
+		}
+		writeJSONError(w, http.StatusInternalServerError, err.Error())
 		return
 	}
 

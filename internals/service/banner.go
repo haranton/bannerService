@@ -38,9 +38,9 @@ func (b *bannerService) Banners(ctx context.Context, params dto.BannersQuery) ([
 func (b *bannerService) CreateBanner(
 	ctx context.Context,
 	banner *models.Banner,
-	featureTagBanner []*models.FeatureTagBanner) (*models.Banner, error) {
+	featureTags *dto.FeatureTags) (*models.Banner, error) {
 
-	banner, err := b.storage.CreateBanner(ctx, banner, featureTagBanner)
+	banner, err := b.storage.CreateBanner(ctx, banner, featureTags)
 	if err != nil {
 		return nil, err
 	}

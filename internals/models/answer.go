@@ -3,7 +3,7 @@ package models
 import "time"
 
 type Banner struct {
-	ID        int64     `db:"id"`
+	ID        int       `db:"id"`
 	Content   []byte    `db:"content"`
 	IsActive  bool      `db:"is_active"`
 	CreatedAt time.Time `db:"created_at"`
@@ -11,7 +11,7 @@ type Banner struct {
 }
 
 type FeatureTagBanner struct {
-	TagID     int64 `db:"tag_id"`
-	FeatureID int64 `db:"feature_id"`
-	BannerID  int64 `db:"banner_id"`
+	TagID     int `db:"tag_id"`
+	FeatureID int `db:"feature_id"`
+	BannerID  int `db:"banner_id"`
 }

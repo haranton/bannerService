@@ -2,6 +2,7 @@ package postgres
 
 import (
 	"bannerService/internals/dto"
+	"bannerService/internals/mapper"
 	"bannerService/internals/models"
 	"bannerService/internals/storage"
 	"context"
@@ -10,7 +11,7 @@ import (
 	"strings"
 )
 
-func (st *PostgresStorage) Banner(ctx context.Context, tagId, feature_id int) (*models.Banner, error) {
+func (st *PostgresStorage) Banner(ctx context.Context, params dto.BannerQuery) (*models.Banner, error) {
 	query := `
         SELECT b.id, b.content, b.is_active, b.created_at, b.updated_at
         FROM banners b
@@ -23,7 +24,7 @@ func (st *PostgresStorage) Banner(ctx context.Context, tagId, feature_id int) (*
 
 	var banner models.Banner
 
-	err := st.db.QueryRowContext(ctx, query, feature_id, tagId).Scan(
+	err := st.db.QueryRowContext(ctx, query, params.Feature_id, params.Tag_id).Scan(
 		&banner.ID,
 		&banner.Content,
 		&banner.IsActive,
@@ -110,7 +111,7 @@ func (st *PostgresStorage) Banners(ctx context.Context, params dto.BannersQuery)
 func (st *PostgresStorage) CreateBanner(
 	ctx context.Context,
 	banner *models.Banner,
-	featureTagBanner []*models.FeatureTagBanner) (*models.Banner, error) {
+	featureTags *dto.FeatureTags) (*models.Banner, error) {
 
 	tx, err := st.db.BeginTxx(ctx, nil)
 	if err != nil {
@@ -137,6 +138,8 @@ func (st *PostgresStorage) CreateBanner(
 	queryCreateBannerLinks := ` INSERT INTO feature_tag_banner (tag_id, feature_id, banner_id)
         VALUES (:tag_id, :feature_id, :banner_id)
         RETURNING id`
+
+	featureTagBanner := mapper.FeatureTagsBanner(featureTags, banner.ID)
 
 	_, err = tx.NamedExec(queryCreateBannerLinks, featureTagBanner)
 	if err != nil {
