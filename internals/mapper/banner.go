@@ -7,7 +7,7 @@ import (
 
 func FeatureTagsBanner(request *dto.FeatureTags, bannerId int) []*models.FeatureTagBanner {
 
-	featuresTags := make([]*models.FeatureTagBanner, len(request.TagIds))
+	featuresTags := make([]*models.FeatureTagBanner, 0, len(request.TagIds))
 	for _, tag := range request.TagIds {
 		featureTagsBanner := models.FeatureTagBanner{
 			TagID:     tag,

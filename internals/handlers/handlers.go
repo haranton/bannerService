@@ -27,9 +27,9 @@ func NewHandler(service *service.Service, logger *slog.Logger, cfg *config.Confi
 
 func (h *Handler) RegisterRoutes(mux *http.ServeMux) {
 
-	mux.HandleFunc("GET /api/user_banner/", h.Banner)
-	mux.HandleFunc("GET /api/banner/", h.Banners)
-	mux.HandleFunc("POST /api/banner/", h.CreateBanner)
+	mux.HandleFunc("GET /api/user_banner", h.Banner)
+	mux.HandleFunc("GET /api/banner", h.Banners)
+	mux.HandleFunc("POST /api/banner", h.CreateBanner)
 	mux.HandleFunc("PATCH /api/banner/{id}", h.PatchBanner)
 	mux.HandleFunc("DELETE /api/banner/{id}", h.DeleteBanner)
 

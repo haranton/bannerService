@@ -22,7 +22,7 @@ var (
 
 func (h *Handler) Banner(w http.ResponseWriter, r *http.Request) {
 
-	tagIdHeader := r.Header.Get("tag_id")
+	tagIdHeader := r.URL.Query().Get("tag_id")
 	if tagIdHeader == "" {
 		writeJSONError(w, http.StatusBadRequest, TextErrTagIsRequired)
 	}
@@ -32,7 +32,7 @@ func (h *Handler) Banner(w http.ResponseWriter, r *http.Request) {
 		writeJSONError(w, http.StatusBadRequest, TextErrTagIdValidate)
 	}
 
-	featureIdHeader := r.Header.Get("feature_id")
+	featureIdHeader := r.URL.Query().Get("feature_id")
 	if featureIdHeader == "" {
 		writeJSONError(w, http.StatusBadRequest, TextErrFeatureIdIsRequired)
 	}
@@ -43,7 +43,7 @@ func (h *Handler) Banner(w http.ResponseWriter, r *http.Request) {
 	}
 
 	var UseLastRevision bool
-	UseLastRevisionHeader := r.Header.Get("use_last_revision")
+	UseLastRevisionHeader := r.URL.Query().Get("use_last_revision")
 	if UseLastRevisionHeader == "true" {
 		UseLastRevision = true
 	}
@@ -57,7 +57,8 @@ func (h *Handler) Banner(w http.ResponseWriter, r *http.Request) {
 	banner, err := h.service.SrvBanner.Banner(r.Context(), params)
 	if err != nil {
 		if errors.Is(err, storage.ErrBannerNotFound) {
-			http.Error(w, err.Error(), http.StatusNotFound)
+			writeJSONError(w, http.StatusNotFound, err.Error())
+			return
 		}
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
@@ -74,7 +75,7 @@ func (h *Handler) Banners(w http.ResponseWriter, r *http.Request) {
 
 	var err error
 
-	tagIdHeader := r.Header.Get("tag_id")
+	tagIdHeader := r.URL.Query().Get("tag_id")
 	var tagId int
 	if tagIdHeader != "" {
 		tagId, err = strconv.Atoi(tagIdHeader)
@@ -83,7 +84,7 @@ func (h *Handler) Banners(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 
-	featureIdHeader := r.Header.Get("feature_id")
+	featureIdHeader := r.URL.Query().Get("feature_id")
 	var featureId int
 	if featureIdHeader != "" {
 		featureId, err = strconv.Atoi(featureIdHeader)
@@ -92,7 +93,7 @@ func (h *Handler) Banners(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 
-	limitHeader := r.Header.Get("limit")
+	limitHeader := r.URL.Query().Get("limit")
 	var limit int
 	if limitHeader == "" {
 		limit, err = strconv.Atoi(limitHeader)
@@ -101,7 +102,7 @@ func (h *Handler) Banners(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 
-	limitOffsetHeader := r.Header.Get("offset")
+	limitOffsetHeader := r.URL.Query().Get("offset")
 	var offset int
 	if limitOffsetHeader == "" {
 		offset, err = strconv.Atoi(limitOffsetHeader)
@@ -145,8 +146,7 @@ func (h *Handler) CreateBanner(w http.ResponseWriter, r *http.Request) {
 	}
 
 	if len(bannerRequest.TagIds) == 0 {
-		errMessage := fmt.Sprintf("tags is reqired")
-		writeJSONError(w, http.StatusBadRequest, errMessage)
+		writeJSONError(w, http.StatusBadRequest, TextErrTagIsRequired)
 		return
 	}
 
@@ -168,7 +168,11 @@ func (h *Handler) CreateBanner(w http.ResponseWriter, r *http.Request) {
 
 	bannerCreated, err := h.service.SrvBanner.CreateBanner(r.Context(), &banner, &featureTags)
 	if err != nil {
-		http.Error(w, err.Error(), http.StatusInternalServerError)
+		if errors.Is(err, storage.ErrDuplicateFeatureTag) {
+			writeJSONError(w, http.StatusBadRequest, err.Error())
+			return
+		}
+		writeJSONError(w, http.StatusInternalServerError, err.Error())
 		return
 	}
 
@@ -213,6 +217,7 @@ func (h *Handler) PatchBanner(w http.ResponseWriter, r *http.Request) {
 	}
 
 	banner := models.Banner{
+		ID:       id,
 		Content:  bannerRequest.Content,
 		IsActive: bannerRequest.IsActive,
 	}
@@ -227,7 +232,7 @@ func (h *Handler) PatchBanner(w http.ResponseWriter, r *http.Request) {
 	err = h.service.SrvBanner.UpdateBanner(r.Context(), &banner, featureTagsModel)
 	if err != nil {
 		if errors.Is(err, storage.ErrBannerNotFound) {
-			writeJSONError(w, http.StatusNotFound, "")
+			w.WriteHeader(http.StatusNotFound)
 			return
 		}
 		writeJSONError(w, http.StatusInternalServerError, err.Error())

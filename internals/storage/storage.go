@@ -8,7 +8,8 @@ import (
 )
 
 var (
-	ErrBannerNotFound = errors.New("banner not found")
+	ErrBannerNotFound      = errors.New("banner not found")
+	ErrDuplicateFeatureTag = errors.New("feature tag already linked to this banner")
 )
 
 type DB interface {

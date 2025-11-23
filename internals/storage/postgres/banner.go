@@ -7,8 +7,11 @@ import (
 	"bannerService/internals/storage"
 	"context"
 	"database/sql"
+	"errors"
 	"fmt"
 	"strings"
+
+	"github.com/lib/pq"
 )
 
 func (st *PostgresStorage) Banner(ctx context.Context, params dto.BannerQuery) (*models.Banner, error) {
@@ -44,10 +47,12 @@ func (st *PostgresStorage) Banner(ctx context.Context, params dto.BannerQuery) (
 
 func (st *PostgresStorage) Banners(ctx context.Context, params dto.BannersQuery) ([]*models.Banner, error) {
 
-	conditions := make([]string, 0, 2)
+	conditions := make([]string, 0, 3)
 	args := make([]any, 0, 4)
 
 	prefixFtbTable := "ftb."
+
+	conditions = append(conditions, "b.is_active = TRUE")
 
 	if params.Feature_id > 0 {
 		conditions = append(conditions, fmt.Sprintf(prefixFtbTable+"feature_id = $%d", len(args)+1))
@@ -59,35 +64,28 @@ func (st *PostgresStorage) Banners(ctx context.Context, params dto.BannersQuery)
 		args = append(args, params.Tag_id)
 	}
 
+	whereClause := strings.Join(conditions, " AND ")
+
+	query :=
+		"SELECT b.id, b.content, b.is_active, b.created_at, b.updated_at " +
+			"FROM banners b " +
+			"JOIN feature_tag_banner ftb ON b.id = ftb.banner_id " +
+			"WHERE " + whereClause
+
 	var limitPart string
 	if params.Limit > 0 {
-		limitPart = fmt.Sprintf(" LIMIT $%d", len(args)+1)
 		args = append(args, params.Limit)
+		limitPart = fmt.Sprintf(" LIMIT $%d", len(args)+1)
+		query = query + limitPart
+
 	}
 
 	var Offset string
 	if params.Offset > 0 {
-		Offset = fmt.Sprintf(" OFFSET $%d", len(args)+1)
 		args = append(args, params.Offset)
+		Offset = fmt.Sprintf(" OFFSET $%d", len(args)+1)
+		query = query + Offset
 	}
-
-	builderWhere := "b.is_active = TRUE"
-	if len(conditions) > 0 {
-		builderWhere = builderWhere + " AND " + strings.Join(conditions, " AND ")
-	}
-
-	query := fmt.Sprintf(`
-        SELECT b.id, b.content, b.is_active, b.created_at, b.updated_at
-        FROM banners b
-        JOIN feature_tag_banner ftb ON b.id = ftb.banner_id
-        WHERE 
-        b.is_active = TRUE %s
-        %s
-		%s
-    `,
-		builderWhere,
-		limitPart,
-		Offset)
 
 	rows, err := st.db.QueryContext(ctx, query, args...)
 	if err != nil {
@@ -129,21 +127,42 @@ func (st *PostgresStorage) CreateBanner(
 	}
 	defer rows.Close()
 
-	if rows.Next() {
-		if err := rows.Scan(&banner.ID); err != nil {
-			return nil, fmt.Errorf("scan returned id failed: %w", err)
+	if !rows.Next() {
+		if rows.Err() != nil {
+			return nil, fmt.Errorf("query failed before scanning banner id: %w", rows.Err())
 		}
+		return nil, fmt.Errorf("no rows returned for banner id")
 	}
 
-	queryCreateBannerLinks := ` INSERT INTO feature_tag_banner (tag_id, feature_id, banner_id)
-        VALUES (:tag_id, :feature_id, :banner_id)
-        RETURNING id`
+	if err := rows.Scan(&banner.ID); err != nil {
+		return nil, fmt.Errorf("scan returned id failed: %w", err)
+	}
+	rows.Close()
+
+	stmt, err := tx.PrepareNamed(`
+    INSERT INTO feature_tag_banner (tag_id, feature_id, banner_id)
+    VALUES (:tag_id, :feature_id, :banner_id)
+`)
+	if err != nil {
+		return nil, err
+	}
+	defer stmt.Close()
 
 	featureTagBanner := mapper.FeatureTagsBanner(featureTags, banner.ID)
 
-	_, err = tx.NamedExec(queryCreateBannerLinks, featureTagBanner)
-	if err != nil {
-		return nil, err
+	for _, rec := range featureTagBanner {
+
+		_, err := stmt.Exec(rec)
+
+		var pqErr *pq.Error
+		if errors.As(err, &pqErr) {
+			if pqErr.Code == "23505" {
+				return nil, fmt.Errorf("%w: constraint %s", storage.ErrDuplicateFeatureTag, pqErr.Constraint)
+			}
+		}
+		if err != nil {
+			return nil, err
+		}
 	}
 
 	if err := tx.Commit(); err != nil {
@@ -163,6 +182,8 @@ func (st *PostgresStorage) UpdateBanner(ctx context.Context,
 		return err
 	}
 	defer tx.Rollback()
+
+	queryDeleteOldLinks
 
 	queryDeleteOldLinks := `DELETE FROM feature_tag_banner WHERE banner_id = $1`
 
