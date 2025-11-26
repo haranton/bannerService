@@ -183,7 +183,28 @@ func (st *PostgresStorage) UpdateBanner(ctx context.Context,
 	}
 	defer tx.Rollback()
 
-	queryDeleteOldLinks
+	queryOldLinks := `
+    SELECT banner_id
+    FROM feature_tag_banner
+    WHERE feature_id = $1
+      AND tag_id = ANY($2)`
+
+	tagIDs := make([]int, len(featureTagBanner))
+	for i, ftb := range featureTagBanner {
+		tagIDs[i] = ftb.TagID
+	}
+
+	var bannersIds []int
+	err = tx.Select(&bannersIds, queryOldLinks, featureTagBanner[0].FeatureID, pq.Array(tagIDs))
+	if err != nil {
+		return err
+	}
+
+	if len(bannersIds) == 1 {
+		if bannersIds[0] != banner.ID {
+			return fmt.Errorf("banner with id %d already has tags", bannersIds[0])
+		}
+	}
 
 	queryDeleteOldLinks := `DELETE FROM feature_tag_banner WHERE banner_id = $1`
 
