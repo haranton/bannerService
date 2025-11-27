@@ -2,6 +2,7 @@ package handlers
 
 import (
 	"bannerService/internals/dto"
+	"bannerService/internals/handlers/utils"
 	"bannerService/internals/mapper"
 	"bannerService/internals/models"
 	"bannerService/internals/storage"
@@ -24,22 +25,22 @@ func (h *Handler) Banner(w http.ResponseWriter, r *http.Request) {
 
 	tagIdHeader := r.URL.Query().Get("tag_id")
 	if tagIdHeader == "" {
-		WriteJSONError(w, http.StatusBadRequest, TextErrTagIsRequired)
+		utils.WriteJSONError(w, http.StatusBadRequest, TextErrTagIsRequired)
 	}
 
 	tagId, err := strconv.Atoi(tagIdHeader)
 	if err != nil {
-		WriteJSONError(w, http.StatusBadRequest, TextErrTagIdValidate)
+		utils.WriteJSONError(w, http.StatusBadRequest, TextErrTagIdValidate)
 	}
 
 	featureIdHeader := r.URL.Query().Get("feature_id")
 	if featureIdHeader == "" {
-		WriteJSONError(w, http.StatusBadRequest, TextErrFeatureIdIsRequired)
+		utils.WriteJSONError(w, http.StatusBadRequest, TextErrFeatureIdIsRequired)
 	}
 
 	featureId, err := strconv.Atoi(featureIdHeader)
 	if err != nil {
-		WriteJSONError(w, http.StatusBadRequest, TextErrFeatureIdValidate)
+		utils.WriteJSONError(w, http.StatusBadRequest, TextErrFeatureIdValidate)
 	}
 
 	var UseLastRevision bool
@@ -57,7 +58,7 @@ func (h *Handler) Banner(w http.ResponseWriter, r *http.Request) {
 	banner, err := h.service.SrvBanner.Banner(r.Context(), params)
 	if err != nil {
 		if errors.Is(err, storage.ErrBannerNotFound) {
-			WriteJSONError(w, http.StatusNotFound, err.Error())
+			utils.WriteJSONError(w, http.StatusNotFound, err.Error())
 			return
 		}
 		http.Error(w, err.Error(), http.StatusInternalServerError)
@@ -136,7 +137,7 @@ func (h *Handler) CreateBanner(w http.ResponseWriter, r *http.Request) {
 	var bannerRequest dto.BannerCreateUpdateRequest
 	if err := json.NewDecoder(r.Body).Decode(&bannerRequest); err != nil {
 		errMessage := fmt.Sprintf("failed decode body request, err: %s", err.Error())
-		WriteJSONError(w, http.StatusBadRequest, errMessage)
+		utils.WriteJSONError(w, http.StatusBadRequest, errMessage)
 		return
 	}
 
@@ -146,13 +147,13 @@ func (h *Handler) CreateBanner(w http.ResponseWriter, r *http.Request) {
 	}
 
 	if len(bannerRequest.TagIds) == 0 {
-		WriteJSONError(w, http.StatusBadRequest, TextErrTagIsRequired)
+		utils.WriteJSONError(w, http.StatusBadRequest, TextErrTagIsRequired)
 		return
 	}
 
 	if bannerRequest.FeatureId == 0 {
 		errMessage := fmt.Sprintf("FeatureId is reqired")
-		WriteJSONError(w, http.StatusBadRequest, errMessage)
+		utils.WriteJSONError(w, http.StatusBadRequest, errMessage)
 		return
 	}
 
@@ -169,10 +170,10 @@ func (h *Handler) CreateBanner(w http.ResponseWriter, r *http.Request) {
 	bannerCreated, err := h.service.SrvBanner.CreateBanner(r.Context(), &banner, &featureTags)
 	if err != nil {
 		if errors.Is(err, storage.ErrDuplicateFeatureTag) {
-			WriteJSONError(w, http.StatusBadRequest, err.Error())
+			utils.WriteJSONError(w, http.StatusBadRequest, err.Error())
 			return
 		}
-		WriteJSONError(w, http.StatusInternalServerError, err.Error())
+		utils.WriteJSONError(w, http.StatusInternalServerError, err.Error())
 		return
 	}
 
@@ -195,7 +196,7 @@ func (h *Handler) PatchBanner(w http.ResponseWriter, r *http.Request) {
 	var bannerRequest dto.BannerCreateUpdateRequest
 	if err := json.NewDecoder(r.Body).Decode(&bannerRequest); err != nil {
 		errMessage := fmt.Sprintf("failed decode body request, err: %s", err.Error())
-		WriteJSONError(w, http.StatusBadRequest, errMessage)
+		utils.WriteJSONError(w, http.StatusBadRequest, errMessage)
 		return
 	}
 
@@ -206,13 +207,13 @@ func (h *Handler) PatchBanner(w http.ResponseWriter, r *http.Request) {
 
 	if len(bannerRequest.TagIds) == 0 {
 		errMessage := fmt.Sprintf("tags is reqired")
-		WriteJSONError(w, http.StatusBadRequest, errMessage)
+		utils.WriteJSONError(w, http.StatusBadRequest, errMessage)
 		return
 	}
 
 	if bannerRequest.FeatureId == 0 {
 		errMessage := fmt.Sprintf("FeatureId is reqired")
-		WriteJSONError(w, http.StatusBadRequest, errMessage)
+		utils.WriteJSONError(w, http.StatusBadRequest, errMessage)
 		return
 	}
 
@@ -235,7 +236,7 @@ func (h *Handler) PatchBanner(w http.ResponseWriter, r *http.Request) {
 			w.WriteHeader(http.StatusNotFound)
 			return
 		}
-		WriteJSONError(w, http.StatusInternalServerError, err.Error())
+		utils.WriteJSONError(w, http.StatusInternalServerError, err.Error())
 		return
 	}
 
@@ -248,16 +249,16 @@ func (h *Handler) DeleteBanner(w http.ResponseWriter, r *http.Request) {
 	id, err := strconv.Atoi(idStr)
 	if err != nil {
 		errMsg := fmt.Sprintf("invalid question id err: %s", err.Error())
-		WriteJSONError(w, http.StatusBadRequest, errMsg)
+		utils.WriteJSONError(w, http.StatusBadRequest, errMsg)
 		return
 	}
 
 	if err := h.service.SrvBanner.DeleteBanner(r.Context(), id); err != nil {
 		if errors.Is(err, storage.ErrBannerNotFound) {
-			WriteJSONError(w, http.StatusNotFound, "")
+			utils.WriteJSONError(w, http.StatusNotFound, "")
 			return
 		}
-		WriteJSONError(w, http.StatusInternalServerError, err.Error())
+		utils.WriteJSONError(w, http.StatusInternalServerError, err.Error())
 		return
 	}
 

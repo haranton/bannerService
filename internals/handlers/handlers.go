@@ -2,6 +2,7 @@ package handlers
 
 import (
 	"bannerService/internals/config"
+	"bannerService/internals/middleware"
 	"bannerService/internals/service"
 	"log/slog"
 	"net/http"
@@ -26,11 +27,16 @@ func NewHandler(service *service.Service, logger *slog.Logger, cfg *config.Confi
 }
 
 func (h *Handler) RegisterRoutes(mux *http.ServeMux) {
+	base := &RouteGroup{mux: mux}
+	auth := base.With(middleware.AuthMiddleware)
+	admin := auth.With(middleware.AdminOnlyMiddleware)
 
-	mux.HandleFunc("GET /api/user_banner", h.Banner)
-	mux.HandleFunc("GET /api/banner", h.Banners)
-	mux.HandleFunc("POST /api/banner", h.CreateBanner)
-	mux.HandleFunc("PATCH /api/banner/{id}", h.PatchBanner)
-	mux.HandleFunc("DELETE /api/banner/{id}", h.DeleteBanner)
+	// Аутентифицированные маршруты
+	auth.HandleFunc("GET /api/user_banner", h.Banner)
 
+	// Административные маршруты
+	admin.HandleFunc("GET /api/banner", h.Banners)
+	admin.HandleFunc("POST /api/banner", h.CreateBanner)
+	admin.HandleFunc("PATCH /api/banner/{id}", h.PatchBanner)
+	admin.HandleFunc("DELETE /api/banner/{id}", h.DeleteBanner)
 }

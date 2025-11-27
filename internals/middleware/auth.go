@@ -1,7 +1,7 @@
 package middleware
 
 import (
-	"bannerService/internals/handlers"
+	"bannerService/internals/handlers/utils"
 	"context"
 	"net/http"
 )
@@ -19,7 +19,7 @@ func AuthMiddleware(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		token := r.Header.Get("token")
 		if token == "" {
-			handlers.WriteJSONError(w, http.StatusUnauthorized, "missing token")
+			utils.WriteJSONError(w, http.StatusUnauthorized, "missing token")
 			return
 		}
 
@@ -29,9 +29,9 @@ func AuthMiddleware(next http.Handler) http.Handler {
 		case UserToken:
 			role = RoleUser
 		case AdminToken:
-			role = AdminToken
+			role = RoleAdmin
 		default:
-			handlers.WriteJSONError(w, http.StatusForbidden, "invalid token")
+			utils.WriteJSONError(w, http.StatusForbidden, "invalid token")
 			return
 		}
 
@@ -47,7 +47,7 @@ func AdminOnlyMiddleware(next http.Handler) http.Handler {
 
 		role, ok := r.Context().Value(roleKey{}).(string)
 		if !ok || role != RoleAdmin {
-			handlers.WriteJSONError(w, http.StatusForbidden, "admin access required")
+			utils.WriteJSONError(w, http.StatusForbidden, "admin access required")
 			return
 		}
 
